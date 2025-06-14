@@ -3,6 +3,7 @@ from tkinter import filedialog
 import re
 import os
 from fpdf import FPDF
+import sys
 
 # ==============================================================================
 # DADOS FIXOS - Altere aqui se necessário
@@ -74,11 +75,28 @@ def extrair_dados_variaveis(bloco):
     return dados
 
 class APAC_PDF(FPDF):
-    """
-    Classe customizada para gerar as páginas do PDF da APAC.
-    """
     def add_apac_page(self, data):
         self.add_page()
+        
+        self.set_auto_page_break(auto=True, margin=5)
+
+        # --- LÓGICA INTELIGENTE PARA ENCONTRAR O TEMPLATE ---
+        if getattr(sys, 'frozen', False):
+            # Se o script estiver rodando como um .exe (congelado)
+            application_path = os.path.dirname(sys.executable)
+        else:
+            # Se estiver rodando como um script .py normal
+            application_path = os.path.dirname(os.path.abspath(__file__))
+        
+        template_path = os.path.join(application_path, "template.png")
+        # --- FIM DA LÓGICA INTELIGENTE ---
+
+        if os.path.exists(template_path):
+            self.image(template_path, x=0, y=0, w=210, h=297)
+        else:
+            self.set_font('Arial', 'B', 16)
+            self.cell(0, 10, "ERRO: Arquivo 'template.png' não encontrado!", 1, 1, 'C')
+            return
         
         # Define a margem inferior para 0.5 cm (5 mm) para permitir escrita no final da página
         self.set_auto_page_break(auto=True, margin=5)
