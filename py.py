@@ -170,7 +170,7 @@ class APAC_PDF(FPDF):
         self.set_xy(105, 246); self.cell(60, 5, data["COD_ORGAO_EMISSOR"])
         self.set_xy(55, 257.5); self.cell(60, 5, data["DOC_AUTORIZADOR"])
         self.set_xy(140, 246); self.cell(60, 5, data["NUMERO_APAC"])
-        self.set_xy(13, 270); self.cell(60, 5, data["DATA_AUTORIZACAO"])
+        self.set_xy(13, 270); self.cell(60, 5, data["DATA_SOLICITACAO"])
         self.set_xy(147, 270); self.cell(60, 5, f"{data['DATA_SOLICITACAO']}    {data['VALIDADE_FIM']}")
         self.set_xy(18.8, 257.9); self.cell(w=2, h=2, text="X", border=0, align='C')
 
