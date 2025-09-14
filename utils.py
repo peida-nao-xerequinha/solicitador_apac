@@ -16,20 +16,55 @@ def extrair(pattern, texto, flags=0):
     match = re.search(pattern, texto, flags)
     return match.group(1).strip() if match else ""
 
+def extrair_principal_e_cnes(bloco):
+    """
+    Extrai apenas:
+    - o primeiro código de procedimento (PROC_PRINCIPAL)
+    - o CNES do primeiro procedimento que tiver CNES preenchido
+    """
+    proc_principal = ""
+    cnes_solicitante = ""
+
+    # Captura toda a seção de procedimentos até "MOTIVO DE SAIDA"
+    secao = re.search(r'PROCEDIMENTOS REALIZADOS:(.*?)(?=MOTIVO DE SAIDA)', 
+                      bloco, re.DOTALL | re.IGNORECASE)
+    
+    if secao:
+        linhas = secao.group(1).split('\n')
+        for linha in linhas:
+            linha = linha.strip()
+            if not linha or "CODIGO" in linha:
+                continue
+
+            # Pega o código do procedimento (primeiros 9+1 dígitos)
+            if not proc_principal:
+                match_codigo = re.search(r'(\d{9}-\d)', linha)
+                if match_codigo:
+                    proc_principal = match_codigo.group(1).strip()
+
+            # Pega o CNES (último número na linha, se existir)
+            if not cnes_solicitante:
+                match_cnes = re.search(r'(\d{6,7})\s*$', linha)
+                if match_cnes:
+                    cnes_solicitante = match_cnes.group(1).strip()
+
+            # Se já encontrou os dois, sai do loop
+            if proc_principal and cnes_solicitante:
+                break
+
+    return proc_principal, cnes_solicitante
+
+
 def extrair_dados_variaveis(bloco):
     """Extrai apenas os dados variáveis de um bloco de texto da APAC."""
     if "NUMERO DO APAC" not in bloco:
-        # AQUI FOI FEITA A CORREÇÃO
-        # Retorna um dicionário vazio para evitar TypeError
         return {}
-
-    # Extrai as partes separadas do endereço
+    
     rua = extrair(r'ENDERECO:\s+([^\n]+)', bloco)
     numero = extrair(r'NUMERO:\s+([\d]+)', bloco)
     bairro = extrair(r'BAIRRO:\s+([^\n]+)', bloco)
-
-    # Junta as partes para formar o endereço completo
     endereco_completo = f"{rua}, {numero} - {bairro}"
+
 
     dados = {
         "CPF_PACIENTE": extrair(r'CPF:\s+([\d\.\-]+)', bloco),
@@ -45,9 +80,19 @@ def extrair_dados_variaveis(bloco):
         "VALIDADE_FIM": extrair(r'FIM DA VALIDADE DO APAC:\s+([\d/]+)', bloco),
         "NUMERO_APAC": extrair(r'NUMERO DO APAC:\s+([\d\-]+)', bloco),
         "CNS_SOLICITANTE": extrair(r'CNS:\s*([\d\s]+)', bloco, re.DOTALL).replace(" ", ""),
-        "CNES_ESTABELECIMENTO": extrair(r'CODIGO DA UNIDADE:\s*([\d-]+)', bloco)
+        "CNES_ESTABELECIMENTO": extrair(r'CODIGO DA UNIDADE:\s*([\d-]+)', bloco),
+        "CID10_PRINCIPAL": extrair(r'C\.I\.D\. PRINCIPAL\s*([A-Z]\d{2,3})', bloco),
     }
+
+    # A lógica de processar procedimentos foi movida para as funções específicas de cada APAC.
+    # Por isso, o bloco de código abaixo foi removido.
+    # if procedimentos:
+    #    ...
+    # return dados
+
     return dados
+
+# O restante do seu arquivo utils.py...
 
 _estabelecimentos_cache = None
 
@@ -157,18 +202,27 @@ class APAC_PDF(FPDF):
         self.set_xy(167, 88.5); self.cell(40, 5, data.get("CEP", ""))
 
         self.set_xy(11.7, 103); self.cell(40, 5, data.get("PROC_PRINCIPAL_COD", ""))
-        self.set_xy(80, 103); self.cell(120, 5, data.get("PROC_PRINCIPAL_NOME", ""))
+        self.set_xy(78, 103); self.cell(120, 5, data.get("PROC_PRINCIPAL_NOME", ""))
         self.set_xy(180, 103); self.cell(10, 5, data.get("PROC_PRINCIPAL_QTD", ""))
         self.set_xy(11.7, 118.5); self.cell(40, 5, data.get("PROC_SEC1_COD", ""))
-        self.set_xy(80, 118.5); self.cell(120, 5, data.get("PROC_SEC1_NOME", ""))
+        self.set_xy(78, 118.5); self.cell(120, 5, data.get("PROC_SEC1_NOME", ""))
         self.set_xy(182, 118.5); self.cell(10, 5, data.get("PROC_SEC1_QTD", ""))
         self.set_xy(11.7, 127.5); self.cell(40, 5, data.get("PROC_SEC2_COD", ""))
-        self.set_xy(80, 127.5); self.cell(120, 5, data.get("PROC_SEC2_NOME", ""))
+        self.set_xy(78, 127.5); self.cell(120, 5, data.get("PROC_SEC2_NOME", ""))
         self.set_xy(182, 127.5); self.cell(10, 5, data.get("PROC_SEC2_QTD", ""))
+        self.set_xy(11.7, 136.5); self.cell(40, 5, data.get("PROC_SEC3_COD", ""))
+        self.set_xy(78, 136.5); self.cell(120, 5, data.get("PROC_SEC3_NOME", ""))
+        self.set_xy(182, 136.5); self.cell(10, 5, data.get("PROC_SEC3_QTD", ""))
+        self.set_xy(11.7, 145.5); self.cell(40, 5, data.get("PROC_SEC4_COD", ""))
+        self.set_xy(78, 145.5); self.cell(120, 5, data.get("PROC_SEC4_NOME", ""))
+        self.set_xy(182, 145.5); self.cell(10, 5, data.get("PROC_SEC4_QTD", ""))
+        self.set_xy(11.7, 154.5); self.cell(40, 5, data.get("PROC_SEC5_COD", ""))
+        self.set_xy(78, 154.5); self.cell(120, 5, data.get("PROC_SEC5_NOME", ""))
+        self.set_xy(182, 154.5); self.cell(10, 5, data.get("PROC_SEC5_QTD", ""))
 
         self.set_xy(14, 173); self.cell(100, 5, data.get("DESC_DIAGNOSTICO", ""))
         self.set_xy(14, 185); self.cell(80, 5, data.get("OBSERVACOES", ""))
-        self.set_xy(125, 173); self.cell(50, 5, data.get("CID10_PRINCIPAL", ""))
+        self.set_xy(125, 173); self.cell(80, 5, data.get("CID10_PRINCIPAL", ""))
         
         self.set_xy(13, 222); self.cell(100, 5, data.get("NOME_SOLICITANTE", ""))
         self.set_xy(55, 230); self.cell(60, 5, data.get("DOC_SOLICITANTE", ""))
