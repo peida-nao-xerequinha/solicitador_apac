@@ -69,6 +69,20 @@ def buscar_nome_medico_por_cns(cns, caminho_csv='medicos.csv'):
         return None
     return None
 
+def buscar_descricao_cid(codigo_cid):
+    """Busca a descrição de um CID em um arquivo CSV."""
+    caminho_csv = os.path.join(os.path.dirname(__file__), 'cid_oftalmologia.csv')
+    if not os.path.exists(caminho_csv):
+        messagebox.showerror("Erro", f"Arquivo CSV não encontrado: {caminho_csv}")
+        return None
+
+    with open(caminho_csv, mode='r', encoding='utf-8') as file:
+        reader = csv.DictReader(file, delimiter=';')
+        for row in reader:
+            if row['codigo'].strip().upper() == codigo_cid.strip().upper():
+                return row['descricao']
+    return "Descrição não encontrada"
+
 # ==============================================================================
 # CLASSE PARA GERAÇÃO DO PDF
 # ==============================================================================
@@ -76,19 +90,14 @@ def buscar_nome_medico_por_cns(cns, caminho_csv='medicos.csv'):
 class APAC_PDF(FPDF):
     def __init__(self, orientacao='P', unidade='mm', tamanho='A4'):
         super().__init__(orientation=orientacao, unit=unidade, format=tamanho)
-        
-        # Define a margem inferior para 0.5 cm (5 mm) para permitir escrita no final da página
         self.set_auto_page_break(auto=True, margin=5)
         
     def add_apac_page(self, data):
         self.add_page()
         
-        # --- LÓGICA INTELIGENTE PARA ENCONTRAR O TEMPLATE ---
         if getattr(sys, 'frozen', False):
-            # Se o script estiver rodando como um .exe (congelado)
             application_path = os.path.dirname(sys.executable)
         else:
-            # Se estiver rodando como um script .py normal
             application_path = os.path.dirname(os.path.abspath(__file__))
             
         template_path = os.path.join(application_path, "template.png")
@@ -99,18 +108,12 @@ class APAC_PDF(FPDF):
             messagebox.showerror("Erro Fatal", "Arquivo 'template.png' não encontrado. Por favor, coloque-o na mesma pasta do executável.")
             return
 
-        # Define a fonte e cor padrão para os dados
         self.set_font('Arial', '', 10)
         self.set_text_color(0, 0, 0)
         
-        # --- PREENCHIMENTO DOS CAMPOS ---
-        
-        # Bloco 1: Estabelecimento
-        self.set_xy(13, 32); self.cell(100, 5, data["NOME_ESTABELECIMENTO"])
-        self.set_xy(168, 32); self.cell(50, 5, data["CNES_ESTABELECIMENTO"])
-        
-        # Bloco 2: Paciente
-        self.set_xy(13, 46.5); self.cell(100, 5, data["NOME_PACIENTE"])
+        self.set_xy(13, 32); self.cell(100, 5, data.get("NOME_ESTABELECIMENTO", ""))
+        self.set_xy(168, 32); self.cell(50, 5, data.get("CNES_ESTABELECIMENTO", ""))
+        self.set_xy(13, 46.5); self.cell(100, 5, data.get("NOME_PACIENTE", ""))
         
         original_font_size = self.font_size_pt
         self.set_font_size(7)
@@ -121,47 +124,42 @@ class APAC_PDF(FPDF):
         self.set_font_size(original_font_size)
         
         self.set_xy(13, 55.2); self.cell(90, 5, data.get("CPF_PACIENTE", ""))
-        self.set_xy(112, 55.2); self.cell(40, 5, data["DATA_NASCIMENTO"])
-        self.set_xy(148, 55.2); self.cell(15, 5, data["RACA_COR"])
-        self.set_xy(13, 62.7); self.cell(100, 5, data["NOME_MAE"])
-        self.set_xy(13, 68.5); self.cell(100, 5, data["NOME_RESPONSAVEL"])
-        self.set_xy(13, 80); self.cell(150, 5, data["ENDERECO"])
-        self.set_xy(13, 88.5); self.cell(50, 5, data["MUNICIPIO_RESIDENCIA"])
-        self.set_xy(130, 88.5); self.cell(50, 5, data["COD_IBGE_MUNICIPIO"])
-        self.set_xy(155, 88.5); self.cell(20, 5, data["UF"])
-        self.set_xy(167, 88.5); self.cell(40, 5, data["CEP"])
+        self.set_xy(112, 55.2); self.cell(40, 5, data.get("DATA_NASCIMENTO", ""))
+        self.set_xy(148, 55.2); self.cell(15, 5, data.get("RACA_COR", ""))
+        self.set_xy(13, 62.7); self.cell(100, 5, data.get("NOME_MAE", ""))
+        self.set_xy(13, 68.5); self.cell(100, 5, data.get("NOME_RESPONSAVEL", ""))
+        self.set_xy(13, 80); self.cell(150, 5, data.get("ENDERECO", ""))
+        self.set_xy(13, 88.5); self.cell(50, 5, data.get("MUNICIPIO_RESIDENCIA", ""))
+        self.set_xy(130, 88.5); self.cell(50, 5, data.get("COD_IBGE_MUNICIPIO", ""))
+        self.set_xy(155, 88.5); self.cell(20, 5, data.get("UF", ""))
+        self.set_xy(167, 88.5); self.cell(40, 5, data.get("CEP", ""))
 
-        # Bloco 3: Procedimentos
-        self.set_xy(11.7, 103); self.cell(40, 5, data["PROC_PRINCIPAL_COD"])
-        self.set_xy(80, 103); self.cell(120, 5, data["PROC_PRINCIPAL_NOME"])
-        self.set_xy(180, 103); self.cell(10, 5, data["PROC_PRINCIPAL_QTD"])
-        self.set_xy(11.7, 118.5); self.cell(40, 5, data["PROC_SEC1_COD"])
-        self.set_xy(80, 118.5); self.cell(120, 5, data["PROC_SEC1_NOME"])
-        self.set_xy(182, 118.5); self.cell(10, 5, data["PROC_SEC1_QTD"])
-        self.set_xy(11.7, 127.5); self.cell(40, 5, data["PROC_SEC2_COD"])
-        self.set_xy(80, 127.5); self.cell(120, 5, data["PROC_SEC2_NOME"])
-        self.set_xy(182, 127.5); self.cell(10, 5, data["PROC_SEC2_QTD"])
+        self.set_xy(11.7, 103); self.cell(40, 5, data.get("PROC_PRINCIPAL_COD", ""))
+        self.set_xy(80, 103); self.cell(120, 5, data.get("PROC_PRINCIPAL_NOME", ""))
+        self.set_xy(180, 103); self.cell(10, 5, data.get("PROC_PRINCIPAL_QTD", ""))
+        self.set_xy(11.7, 118.5); self.cell(40, 5, data.get("PROC_SEC1_COD", ""))
+        self.set_xy(80, 118.5); self.cell(120, 5, data.get("PROC_SEC1_NOME", ""))
+        self.set_xy(182, 118.5); self.cell(10, 5, data.get("PROC_SEC1_QTD", ""))
+        self.set_xy(11.7, 127.5); self.cell(40, 5, data.get("PROC_SEC2_COD", ""))
+        self.set_xy(80, 127.5); self.cell(120, 5, data.get("PROC_SEC2_NOME", ""))
+        self.set_xy(182, 127.5); self.cell(10, 5, data.get("PROC_SEC2_QTD", ""))
 
-        # Bloco 4: Justificativa
-        self.set_xy(14, 173); self.cell(100, 5, data["DESC_DIAGNOSTICO"])
-        self.set_xy(14, 185); self.cell(80, 5, data["OBSERVACOES"])
-        self.set_xy(125, 173); self.cell(50, 5, data["CID10_PRINCIPAL"])
+        self.set_xy(14, 173); self.cell(100, 5, data.get("DESC_DIAGNOSTICO", ""))
+        self.set_xy(14, 185); self.cell(80, 5, data.get("OBSERVACOES", ""))
+        self.set_xy(125, 173); self.cell(50, 5, data.get("CID10_PRINCIPAL", ""))
         
-        # Bloco 5: Solicitação
-        self.set_xy(13, 222); self.cell(100, 5, data["NOME_SOLICITANTE"])
-        self.set_xy(55, 230); self.cell(60, 5, data["DOC_SOLICITANTE"])
-        self.set_xy(110, 222); self.cell(40, 5, data["DATA_SOLICITACAO"])
+        self.set_xy(13, 222); self.cell(100, 5, data.get("NOME_SOLICITANTE", ""))
+        self.set_xy(55, 230); self.cell(60, 5, data.get("DOC_SOLICITANTE", ""))
+        self.set_xy(110, 222); self.cell(40, 5, data.get("DATA_SOLICITACAO", ""))
         self.set_xy(18.8, 230.9); self.cell(w=2, h=2, text="X", border=0, align='C')
         
-        # Bloco 6: Autorização
-        self.set_xy(13, 246); self.cell(60, 5, data["NOME_AUTORIZADOR"])
-        self.set_xy(105, 246); self.cell(60, 5, data["COD_ORGAO_EMISSOR"])
-        self.set_xy(55, 257.5); self.cell(60, 5, data["DOC_AUTORIZADOR"])
-        self.set_xy(140, 246); self.cell(60, 5, data["NUMERO_APAC"])
-        self.set_xy(13, 270); self.cell(60, 5, data["DATA_SOLICITACAO"])
-        self.set_xy(147, 270); self.cell(60, 5, f"{data['DATA_SOLICITACAO']}    {data['VALIDADE_FIM']}")
+        self.set_xy(13, 246); self.cell(60, 5, data.get("NOME_AUTORIZADOR", ""))
+        self.set_xy(105, 246); self.cell(60, 5, data.get("COD_ORGAO_EMISSOR", ""))
+        self.set_xy(55, 257.5); self.cell(60, 5, data.get("DOC_AUTORIZADOR", ""))
+        self.set_xy(140, 246); self.cell(60, 5, data.get("NUMERO_APAC", ""))
+        self.set_xy(13, 270); self.cell(60, 5, data.get("DATA_SOLICITACAO", ""))
+        self.set_xy(147, 270); self.cell(60, 5, f"{data.get('DATA_SOLICITACAO', '')}    {data.get('VALIDADE_FIM', '')}")
         self.set_xy(18.8, 257.9); self.cell(w=2, h=2, text="X", border=0, align='C')
 
-        # Bloco 7: Executante
-        self.set_xy(13, 283); self.cell(100, 5, data["NOME_EXECUTANTE"])
-        self.set_xy(165, 283); self.cell(50, 5, data["CNES_EXECUTANTE"])
+        self.set_xy(13, 283); self.cell(100, 5, data.get("NOME_EXECUTANTE", ""))
+        self.set_xy(165, 283); self.cell(50, 5, data.get("CNES_ESTABELECIMENTO", ""))

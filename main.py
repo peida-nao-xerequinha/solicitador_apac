@@ -1,4 +1,4 @@
-# main.py
+# main.py voltando aos trabalhos
 
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -8,13 +8,15 @@ import sys
 import os
 import locale
 import re
+from fpdf import FPDF
+import csv
 
 # Importa a lógica específica de cada tipo de APAC
-from risco_cirurgico import DADOS_FIXOS_RISCO_CIRURGICO
-from oftalmologia import DADOS_FIXOS_OFTALMOLOGIA
+from risco_cirurgico import DADOS_FIXOS_RISCO_CIRURGICO, gerar_apac_risco_cirurgico
+from oftalmologia import DADOS_FIXOS_OFTALMOLOGIA, gerar_apac_oftalmologia
 
 # Importa as funções e classes de utilidade
-from utils import extrair_dados_variaveis, APAC_PDF, buscar_nome_medico_por_cns
+from utils import extrair_dados_variaveis, APAC_PDF, buscar_nome_medico_por_cns, extrair, buscar_descricao_cid
 
 # ==============================================================================
 # VARIÁVEIS DE ESTADO E CONFIGURAÇÕES DA GUI
@@ -77,12 +79,6 @@ def gerar_apacs():
         messagebox.showerror("Erro", "Por favor, selecione um tipo de APAC.")
         return
 
-    # Define os dados fixos específicos com base no tipo selecionado
-    if tipo_apac_selecionado == "risco_cirurgico":
-        DADOS_FIXOS_ESPECIFICOS = DADOS_FIXOS_RISCO_CIRURGICO
-    else:
-        DADOS_FIXOS_ESPECIFICOS = DADOS_FIXOS_OFTALMOLOGIA
-
     try:
         with open(caminho_arquivo, 'r', encoding='latin-1') as f:
             conteudo = f.read()
@@ -94,62 +90,34 @@ def gerar_apacs():
             messagebox.showerror("Erro", "Nenhum registro de APAC válido foi encontrado no arquivo.")
             return
 
-        # 1. Agrupar as APACs por CNES
         apacs_por_cnes = {}
         for bloco in lista_apacs:
-            dados_variaveis_temp = extrair_dados_variaveis(bloco)
+            dados_variaveis_temp = extrair_dados_variaveis(bloco) or {}
+            
             cnes = dados_variaveis_temp.get('CNES_ESTABELECIMENTO')
-            if cnes not in apacs_por_cnes:
-                apacs_por_cnes[cnes] = []
-            apacs_por_cnes[cnes].append(bloco)
+            if cnes:
+                if cnes not in apacs_por_cnes:
+                    apacs_por_cnes[cnes] = []
+                apacs_por_cnes[cnes].append(bloco)
+        
+        if not apacs_por_cnes:
+            messagebox.showerror("Erro", "Nenhum CNES válido foi encontrado para agrupar os arquivos.")
+            return
 
-        # 2. Processar cada grupo de CNES
         for cnes, blocos_cnes in apacs_por_cnes.items():
             
-            # 3. Ordenar se for Oftalmologia
             if tipo_apac_selecionado == "oftalmologia":
                 blocos_ordenados = sorted(
                     blocos_cnes,
                     key=lambda bloco: extrair_dados_variaveis(bloco).get("NOME_PACIENTE", "")
                 )
+                gerar_apac_oftalmologia(blocos_ordenados, DADOS_FIXOS_GENERICOS)
+
             else:
                 blocos_ordenados = blocos_cnes
+                gerar_apac_risco_cirurgico(blocos_ordenados, DADOS_FIXOS_GENERICOS)
             
-            pdf = APAC_PDF(orientacao='P', unidade='mm', tamanho='A4')
-            
-            for bloco in blocos_ordenados:
-                dados_variaveis = extrair_dados_variaveis(bloco)
-                if dados_variaveis:
-                    cns_solicitante = dados_variaveis.get('CNS_SOLICITANTE', '')
-                    cns_autorizador = dados_variaveis.get('CNS_AUTORIZADOR', '')
-                    
-                    nome_solicitante = buscar_nome_medico_por_cns(cns_solicitante)
-                    nome_autorizador = buscar_nome_medico_por_cns(cns_autorizador)
-
-                    if not nome_solicitante or not nome_autorizador:
-                        messagebox.showerror("Erro", "Médico solicitante ou autorizador não encontrado no CSV.")
-                        return
-
-                    dados_fixos_temp = DADOS_FIXOS_ESPECIFICOS.copy()
-                    dados_fixos_temp["NOME_SOLICITANTE"] = nome_solicitante
-                    dados_fixos_temp["NOME_AUTORIZADOR"] = nome_autorizador
-                    
-                    # Usa o CNES extraído do arquivo no dicionário de dados
-                    dados_completos = {**DADOS_FIXOS_GENERICOS, **dados_fixos_temp, **dados_variaveis}
-                    dados_completos["CNES_ESTABELECIMENTO"] = cnes
-                    pdf.add_apac_page(dados_completos)
-
-            # 4. Salva o PDF com o nome do CNES
-            pasta_downloads = os.path.join(os.path.expanduser('~'), 'Downloads')
-            if not os.path.isdir(pasta_downloads):
-                pasta_downloads = "."
-
-            nome_saida = f"apacs_{cnes}.pdf"
-            caminho_completo_saida = os.path.join(pasta_downloads, nome_saida)
-            
-            pdf.output(caminho_completo_saida)
-            
-        messagebox.showinfo("Deu bom!", f"Processo de geração concluído. Arquivos PDF salvos em: {pasta_downloads}")
+        messagebox.showinfo("Deu bom!", f"Processo de geração concluído. Arquivos PDF salvos em: {os.path.join(os.path.expanduser('~'), 'Downloads')}")
 
     except Exception as e:
         messagebox.showerror("Erro", f"Ocorreu um erro ao processar o arquivo: {e}")
