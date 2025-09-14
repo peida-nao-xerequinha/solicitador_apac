@@ -65,6 +65,16 @@ def extrair_dados_variaveis(bloco):
     bairro = extrair(r'BAIRRO:\s+([^\n]+)', bloco)
     endereco_completo = f"{rua}, {numero} - {bairro}"
 
+    cns_matches = re.findall(r'CNS:\s*([\d\s]+)', bloco, re.DOTALL)
+    
+    # Lógica de extração de CNS baseada no número de ocorrências
+    cns_solicitante = ""
+    cns_autorizador = ""
+    if len(cns_matches) >= 2:
+        cns_solicitante = cns_matches[0].replace(" ", "").strip()
+    if len(cns_matches) > 1:
+        cns_autorizador = cns_matches[-1].replace(" ", "").strip()
+
 
     dados = {
         "CPF_PACIENTE": extrair(r'CPF:\s+([\d\.\-]+)', bloco),
@@ -79,9 +89,11 @@ def extrair_dados_variaveis(bloco):
         "DATA_SOLICITACAO": extrair(r'INICIO DA VALIDADE DA APAC:\s+([\d/]+)', bloco),
         "VALIDADE_FIM": extrair(r'FIM DA VALIDADE DO APAC:\s+([\d/]+)', bloco),
         "NUMERO_APAC": extrair(r'NUMERO DO APAC:\s+([\d\-]+)', bloco),
-        "CNS_SOLICITANTE": extrair(r'CNS:\s*([\d\s]+)', bloco, re.DOTALL).replace(" ", ""),
+        #"CNS_SOLICITANTE": extrair(r'CNS:\s*([\d\s]+)', bloco, re.DOTALL).replace(" ", ""),
         "CNES_ESTABELECIMENTO": extrair(r'CODIGO DA UNIDADE:\s*([\d-]+)', bloco),
         "CID10_PRINCIPAL": extrair(r'C\.I\.D\. PRINCIPAL\s*([A-Z]\d{2,3})', bloco),
+        "CNS_SOLICITANTE": cns_solicitante,
+        "CNS_AUTORIZADOR": cns_autorizador,
     }
 
     # A lógica de processar procedimentos foi movida para as funções específicas de cada APAC.

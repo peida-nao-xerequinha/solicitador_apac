@@ -92,7 +92,7 @@ def gerar_apacs():
         # Agora, basta chamar a função apropriada passando a lista completa de blocos.
         if tipo_apac_selecionado == "oftalmologia":
             # Extrai o CNES do primeiro bloco para usar como base para os dados fixos
-            _proc_principal, cnes_solicitante = extrair_principal_e_cnes(lista_apacs[0])
+            proc_principal, cnes_solicitante = extrair_principal_e_cnes(lista_apacs[0])
             dados_fixos_cnes = DADOS_FIXOS_GENERICOS.copy()
             dados_fixos_cnes["COD_ESTABELECIMENTO"] = cnes_solicitante
             dados_fixos_cnes["NOME_ESTABELECIMENTO"] = buscar_descricao_cnes_solicitante(cnes_solicitante)
@@ -100,7 +100,7 @@ def gerar_apacs():
 
         elif tipo_apac_selecionado == "risco_cirurgico":
             # Extrai o CNES do primeiro bloco para usar como base para os dados fixos
-            _proc_principal, cnes_solicitante = extrair_principal_e_cnes(lista_apacs[0])
+            proc_principal, cnes_solicitante = extrair_principal_e_cnes(lista_apacs[0])
             dados_fixos_cnes = DADOS_FIXOS_GENERICOS.copy()
             dados_fixos_cnes["COD_ESTABELECIMENTO"] = cnes_solicitante
             dados_fixos_cnes["NOME_ESTABELECIMENTO"] = buscar_descricao_cnes_solicitante(cnes_solicitante)

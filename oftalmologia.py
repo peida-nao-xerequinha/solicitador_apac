@@ -75,7 +75,6 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
         # Pega o CID e busca a descrição (melhor prática)
         cid_principal = dados_variaveis.get("CID10_PRINCIPAL", "")
         desc_cid_principal = buscar_descricao_cid(cid_principal)
-        print(f'o cid dessa apac é {cid_principal}')
 
         # Garante que os valores de CNS sejam strings, para evitar TypeErrors
         # Usa o CNES extraído da nova lógica
@@ -102,8 +101,9 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
             "DESC_DIAGNOSTICO": desc_cid_principal,
             "CID10_PRINCIPAL": cid_principal,
             "COD_ORGAO_EMISSOR": "M351620001",
+            "OBSERVACOES": "Consulta oftalmológica de rotina",
             "NOME_ESTABELECIMENTO": desc_cnes_solicitante or dados_fixos_genericos.get("NOME_ESTABELECIMENTO", ""),
-        }
+        }   
 
         # Adiciona os procedimentos secundários dinamicamente
         for j, sec in enumerate(mapa["secundarios"], start=1):

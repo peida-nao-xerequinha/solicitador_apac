@@ -54,18 +54,20 @@ def gerar_apac_risco_cirurgico(blocos_apac, dados_fixos_genericos):
         # Pega o CID e busca a descrição (melhor prática)
         cid_principal = dados_variaveis.get("CID10_PRINCIPAL", "")
         desc_cid_principal = buscar_descricao_cid(cid_principal)
-        print(f'o cid dessa apac é {cid_principal}')
 
         # Garante que os valores de CNS sejam strings
         cns_solicitante = str(dados_variaveis.get("CNS_SOLICITANTE", ""))
         nome_solicitante = str(buscar_nome_medico_por_cns(cns_solicitante))
         
-        cns_autorizador = str(dados_fixos_genericos.get("CNS_AUTORIZADOR", ""))
+        cns_autorizador = str(dados_variaveis.get("CNS_AUTORIZADOR", ""))
         nome_autorizador = str(buscar_nome_medico_por_cns(cns_autorizador))
         
         # Usa o CNES que foi extraído no 'main.py'
         cod_cnes_solicitante = dados_fixos_genericos.get("COD_ESTABELECIMENTO", "")
         desc_cnes_solicitante = str(buscar_descricao_cnes_solicitante(cod_cnes_solicitante))
+
+        #print(f'{proc_principal}'),
+       # print(f'{cnes_solicitante}'),
 
         dados_fixos_temp = {
             "PROC_PRINCIPAL_COD": PROC_PRINCIPAL["cod"],
