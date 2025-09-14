@@ -19,7 +19,9 @@ def extrair(pattern, texto, flags=0):
 def extrair_dados_variaveis(bloco):
     """Extrai apenas os dados variáveis de um bloco de texto da APAC."""
     if "NUMERO DO APAC" not in bloco:
-        return None
+        # AQUI FOI FEITA A CORREÇÃO
+        # Retorna um dicionário vazio para evitar TypeError
+        return {}
 
     # Extrai as partes separadas do endereço
     rua = extrair(r'ENDERECO:\s+([^\n]+)', bloco)
@@ -40,20 +42,20 @@ def extrair_dados_variaveis(bloco):
         "ENDERECO": endereco_completo,
         "CEP": extrair(r'CEP:\s+([\d\-]+)', bloco),
         "DATA_SOLICITACAO": extrair(r'INICIO DA VALIDADE DA APAC:\s+([\d/]+)', bloco),
-        "DATA_AUTORIZACAO": extrair(r'DATA DA OCORRENCIA:\s+([\d/]+)', bloco),
         "VALIDADE_FIM": extrair(r'FIM DA VALIDADE DO APAC:\s+([\d/]+)', bloco),
         "NUMERO_APAC": extrair(r'NUMERO DO APAC:\s+([\d\-]+)', bloco),
-        # Extrai o CNS do profissional solicitante
-        "CNS_SOLICITANTE": extrair(r'MEDICO SOLICITANTE:.*?CNS:\s+([\d]+)', bloco, re.DOTALL),
-        # Extrai o CNS do profissional autorizador
-        "CNS_AUTORIZADOR": extrair(r'AUTORIZADOR:.*?CNS:\s+([\d]+)', bloco, re.DOTALL),
-        # Extrai o código CNES para usar na criação do arquivo
-        "CNES_ESTABELECIMENTO": extrair(r'CODIGO DA UNIDADE:\s+([\d-]+)', bloco)
+        "CNS_SOLICITANTE": extrair(r'CNS:\s*([\d\s]+)', bloco, re.DOTALL).replace(" ", ""),
+        "CNES_ESTABELECIMENTO": extrair(r'CODIGO DA UNIDADE:\s*([\d-]+)', bloco)
     }
     return dados
 
+_estabelecimentos_cache = None
+
 def buscar_nome_medico_por_cns(cns, caminho_csv='medicos.csv'):
     """Busca o nome do médico em um arquivo CSV a partir do Cartão Nacional de Saúde (CNS)."""
+    if not cns:
+        return None
+    
     if not os.path.exists(caminho_csv):
         print(f"ERRO: Arquivo '{caminho_csv}' não encontrado.")
         return None
@@ -62,7 +64,7 @@ def buscar_nome_medico_por_cns(cns, caminho_csv='medicos.csv'):
         with open(caminho_csv, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file, delimiter=';')
             for row in reader:
-                if row['cartao_sus'] == cns:
+                if row['cartao_sus'].strip() == cns.strip():
                     return row['nome_completo']
     except Exception as e:
         print(f"ERRO ao ler o arquivo CSV: {e}")
@@ -83,6 +85,26 @@ def buscar_descricao_cid(codigo_cid):
                 return row['descricao']
     return "Descrição não encontrada"
 
+def buscar_descricao_cnes_solicitante(cnes_solicitante, caminho_csv='estabelecimentos.csv'):
+    """Busca a descrição de um CNES solicitante em um arquivo CSV."""
+    if not cnes_solicitante:
+        return "" # Retorna string vazia para evitar TypeError
+
+    if not os.path.exists(caminho_csv):
+        print(f"ERRO: Arquivo '{caminho_csv}' não encontrado.")
+        return "" # Retorna string vazia para evitar TypeError
+
+    try:
+        with open(caminho_csv, mode='r', encoding='utf-8') as file:
+            reader = csv.DictReader(file, delimiter=';')
+            for row in reader:
+                if row['cod_solicitante'].strip() == cnes_solicitante.strip().replace('-', ''):
+                    return row['desc_solicitante']
+    except Exception as e:
+        print(f"ERRO ao ler o arquivo CSV: {e}")
+        return "" # Retorna string vazia para evitar TypeError
+    return "" # Retorna string vazia para o caso de não encontrar
+    
 # ==============================================================================
 # CLASSE PARA GERAÇÃO DO PDF
 # ==============================================================================
@@ -127,7 +149,7 @@ class APAC_PDF(FPDF):
         self.set_xy(112, 55.2); self.cell(40, 5, data.get("DATA_NASCIMENTO", ""))
         self.set_xy(148, 55.2); self.cell(15, 5, data.get("RACA_COR", ""))
         self.set_xy(13, 62.7); self.cell(100, 5, data.get("NOME_MAE", ""))
-        self.set_xy(13, 68.5); self.cell(100, 5, data.get("NOME_RESPONSAVEL", ""))
+        self.set_xy(13, 72.5); self.cell(100, 5, data.get("NOME_RESPONSAVEL", ""))
         self.set_xy(13, 80); self.cell(150, 5, data.get("ENDERECO", ""))
         self.set_xy(13, 88.5); self.cell(50, 5, data.get("MUNICIPIO_RESIDENCIA", ""))
         self.set_xy(130, 88.5); self.cell(50, 5, data.get("COD_IBGE_MUNICIPIO", ""))

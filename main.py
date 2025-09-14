@@ -4,19 +4,17 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from ttkthemes import ThemedTk
 from datetime import datetime
-import sys
 import os
 import locale
 import re
 from fpdf import FPDF
-import csv
 
 # Importa a lógica específica de cada tipo de APAC
-from risco_cirurgico import DADOS_FIXOS_RISCO_CIRURGICO, gerar_apac_risco_cirurgico
-from oftalmologia import DADOS_FIXOS_OFTALMOLOGIA, gerar_apac_oftalmologia
+from risco_cirurgico import gerar_apac_risco_cirurgico
+from oftalmologia import gerar_apac_oftalmologia
 
 # Importa as funções e classes de utilidade
-from utils import extrair_dados_variaveis, APAC_PDF, buscar_nome_medico_por_cns, extrair, buscar_descricao_cid
+from utils import extrair_dados_variaveis, APAC_PDF, buscar_nome_medico_por_cns, extrair, buscar_descricao_cid, buscar_descricao_cnes_solicitante
 
 # ==============================================================================
 # VARIÁVEIS DE ESTADO E CONFIGURAÇÕES DA GUI
@@ -90,11 +88,11 @@ def gerar_apacs():
             messagebox.showerror("Erro", "Nenhum registro de APAC válido foi encontrado no arquivo.")
             return
 
+        # Agrupa os blocos de APAC por CNES.
         apacs_por_cnes = {}
         for bloco in lista_apacs:
-            dados_variaveis_temp = extrair_dados_variaveis(bloco) or {}
-            
-            cnes = dados_variaveis_temp.get('CNES_ESTABELECIMENTO')
+            # Extrai o CNES da UNIDADE PRINCIPAL do bloco de texto para usar como chave de agrupamento.
+            cnes = extrair(r'CODIGO DA UNIDADE:\s*([\d-]+)', bloco).replace(" ", "").replace("-", "")
             if cnes:
                 if cnes not in apacs_por_cnes:
                     apacs_por_cnes[cnes] = []
@@ -104,19 +102,28 @@ def gerar_apacs():
             messagebox.showerror("Erro", "Nenhum CNES válido foi encontrado para agrupar os arquivos.")
             return
 
+        # Itera sobre cada grupo de APACs (um por CNES)
         for cnes, blocos_cnes in apacs_por_cnes.items():
             
+            # Cria uma cópia dos dados fixos genéricos para adicionar as informações específicas do CNES
+            dados_fixos_cnes = DADOS_FIXOS_GENERICOS.copy()
+            dados_fixos_cnes["COD_ESTABELECIMENTO"] = cnes
+            # Busca a descrição do estabelecimento a partir do CNES
+            dados_fixos_cnes["NOME_ESTABELECIMENTO"] = buscar_descricao_cnes_solicitante(cnes)
+
+            # Dependendo do tipo selecionado, chama a função de geração apropriada
             if tipo_apac_selecionado == "oftalmologia":
+                # Ordena os blocos por nome de paciente
                 blocos_ordenados = sorted(
                     blocos_cnes,
                     key=lambda bloco: extrair_dados_variaveis(bloco).get("NOME_PACIENTE", "")
                 )
-                gerar_apac_oftalmologia(blocos_ordenados, DADOS_FIXOS_GENERICOS)
+                gerar_apac_oftalmologia(blocos_ordenados, dados_fixos_cnes)
 
-            else:
+            elif tipo_apac_selecionado == "risco_cirurgico":
                 blocos_ordenados = blocos_cnes
-                gerar_apac_risco_cirurgico(blocos_ordenados, DADOS_FIXOS_GENERICOS)
-            
+                gerar_apac_risco_cirurgico(blocos_ordenados, dados_fixos_cnes)
+        
         messagebox.showinfo("Deu bom!", f"Processo de geração concluído. Arquivos PDF salvos em: {os.path.join(os.path.expanduser('~'), 'Downloads')}")
 
     except Exception as e:
