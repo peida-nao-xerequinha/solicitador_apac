@@ -10,7 +10,8 @@ from utils import (
     buscar_nome_medico_por_cns,
     extrair,
     buscar_descricao_cid,
-    buscar_descricao_cnes_solicitante,
+    # ATUALIZADO: Importa a nova função com o nome correto
+    buscar_descricao_cnes,
     extrair_principal_e_cnes
 )
 
@@ -54,9 +55,16 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
     pdf = APAC_PDF(orientacao='P')
 
     for bloco in blocos_apac:
-        # Extrai o procedimento principal e o CNES com a nova função
-        proc_principal, cnes_solicitante = extrair_principal_e_cnes(bloco)
-
+        # Extrai os dados variáveis de cada bloco
+        dados_variaveis = extrair_dados_variaveis(bloco)
+        
+        # Pula se não encontrar os dados essenciais
+        if not dados_variaveis:
+            continue
+        
+        # Extrai o procedimento principal para encontrar o mapa
+        proc_principal, _ = extrair_principal_e_cnes(bloco)
+        
         # Se o procedimento principal não for encontrado, pula para o próximo bloco
         if not proc_principal:
             messagebox.showwarning("Aviso", "Procedimento principal não encontrado. Pulando este bloco.")
@@ -68,25 +76,22 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
         if not mapa:
             messagebox.showwarning("Aviso", f"Procedimento principal não mapeado: {proc_principal}. Pulando este bloco.")
             continue
-        
-        # Agora extrai os demais dados variáveis
-        dados_variaveis = extrair_dados_variaveis(bloco)
-        
+
         # Pega o CID e busca a descrição (melhor prática)
-        cid_principal = dados_variaveis.get("CID10_PRINCIPAL", "")
-        desc_cid_principal = buscar_descricao_cid(cid_principal)
+        codigo_cid = dados_variaveis.get("CID10_PRINCIPAL", "")
+        descricao_cid = buscar_descricao_cid(codigo_cid)
 
         # Garante que os valores de CNS sejam strings, para evitar TypeErrors
-        # Usa o CNES extraído da nova lógica
         cns_solicitante = str(dados_variaveis.get("CNS_SOLICITANTE", ""))
         nome_solicitante = str(buscar_nome_medico_por_cns(cns_solicitante))
         
-        # CORREÇÃO: Pega o CNS do autorizador dos dados variáveis, conforme a sua indicação
         cns_autorizador = str(dados_variaveis.get("CNS_AUTORIZADOR", ""))
         nome_autorizador = str(buscar_nome_medico_por_cns(cns_autorizador))
         
-        cod_cnes_solicitante = cnes_solicitante
-        desc_cnes_solicitante = str(buscar_descricao_cnes_solicitante(cod_cnes_solicitante))
+        # CORREÇÃO: Pega o CNES do estabelecimento diretamente dos dados variáveis
+        cod_cnes_executante = dados_variaveis.get("CNES_ESTABELECIMENTO", "")
+        # E busca a descrição a partir desse CNES usando a nova função
+        desc_cnes_executante = str(buscar_descricao_cnes(cod_cnes_executante))
 
         # Novo: Usa o 'proc_principal' e 'mapa' para popular os dados
         dados_fixos_temp = {
@@ -97,13 +102,12 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
             "DOC_SOLICITANTE": cns_solicitante,
             "NOME_AUTORIZADOR": nome_autorizador,
             "DOC_AUTORIZADOR": cns_autorizador,
-            # CORREÇÃO: Usa a variável 'descricao_cid' corretamente
-            "DESC_DIAGNOSTICO": desc_cid_principal,
-            "CID10_PRINCIPAL": cid_principal,
+            "DESC_DIAGNOSTICO": descricao_cid,
+            "CID10_PRINCIPAL": codigo_cid,
             "COD_ORGAO_EMISSOR": "M351620001",
-            "OBSERVACOES": "Consulta oftalmológica de rotina",
-            "NOME_ESTABELECIMENTO": desc_cnes_solicitante or dados_fixos_genericos.get("NOME_ESTABELECIMENTO", ""),
-        }   
+            # CORREÇÃO: Usa a descrição do CNES do estabelecimento extraído do bloco
+            "NOME_ESTABELECIMENTO": desc_cnes_executante or dados_fixos_genericos.get("NOME_ESTABELECIMENTO", ""),
+        }
 
         # Adiciona os procedimentos secundários dinamicamente
         for j, sec in enumerate(mapa["secundarios"], start=1):

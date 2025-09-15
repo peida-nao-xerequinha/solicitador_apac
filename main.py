@@ -14,7 +14,7 @@ from risco_cirurgico import gerar_apac_risco_cirurgico
 from oftalmologia import gerar_apac_oftalmologia
 
 # Importa as funções e classes de utilidade
-from utils import extrair_dados_variaveis, APAC_PDF, buscar_nome_medico_por_cns, extrair, buscar_descricao_cid, buscar_descricao_cnes_solicitante, extrair_principal_e_cnes, extrair_principal_e_cnes
+from utils import (extrair_dados_variaveis, APAC_PDF, buscar_nome_medico_por_cns, extrair, buscar_descricao_cid, buscar_descricao_cnes, extrair_principal_e_cnes)
 
 # ==============================================================================
 # VARIÁVEIS DE ESTADO E CONFIGURAÇÕES DA GUI
@@ -88,22 +88,14 @@ def gerar_apacs():
             messagebox.showerror("Erro", "Nenhum registro de APAC válido foi encontrado no arquivo.")
             return
 
-        # A lógica de agrupamento por CNES foi transferida para as funções específicas.
-        # Agora, basta chamar a função apropriada passando a lista completa de blocos.
+        # ATUALIZADO: Remove a lógica de CNES fixo, pois é variável
+        # A lógica de CNES fixo é agora tratada dentro de cada função de especialidade
+        dados_fixos_cnes = DADOS_FIXOS_GENERICOS.copy()
+
         if tipo_apac_selecionado == "oftalmologia":
-            # Extrai o CNES do primeiro bloco para usar como base para os dados fixos
-            proc_principal, cnes_solicitante = extrair_principal_e_cnes(lista_apacs[0])
-            dados_fixos_cnes = DADOS_FIXOS_GENERICOS.copy()
-            dados_fixos_cnes["COD_ESTABELECIMENTO"] = cnes_solicitante
-            dados_fixos_cnes["NOME_ESTABELECIMENTO"] = buscar_descricao_cnes_solicitante(cnes_solicitante)
             gerar_apac_oftalmologia(lista_apacs, dados_fixos_cnes)
 
         elif tipo_apac_selecionado == "risco_cirurgico":
-            # Extrai o CNES do primeiro bloco para usar como base para os dados fixos
-            proc_principal, cnes_solicitante = extrair_principal_e_cnes(lista_apacs[0])
-            dados_fixos_cnes = DADOS_FIXOS_GENERICOS.copy()
-            dados_fixos_cnes["COD_ESTABELECIMENTO"] = cnes_solicitante
-            dados_fixos_cnes["NOME_ESTABELECIMENTO"] = buscar_descricao_cnes_solicitante(cnes_solicitante)
             gerar_apac_risco_cirurgico(lista_apacs, dados_fixos_cnes)
         
         messagebox.showinfo("Deu bom!", f"Processo de geração concluído. Arquivos PDF salvos em: {os.path.join(os.path.expanduser('~'), 'Downloads')}")

@@ -142,25 +142,26 @@ def buscar_descricao_cid(codigo_cid):
                 return row['descricao']
     return "Descrição não encontrada"
 
-def buscar_descricao_cnes_solicitante(cnes_solicitante, caminho_csv='estabelecimentos.csv'):
-    """Busca a descrição de um CNES solicitante em um arquivo CSV."""
-    if not cnes_solicitante:
-        return "" # Retorna string vazia para evitar TypeError
+def buscar_descricao_cnes(cnes, caminho_csv='estabelecimentos.csv'):
+    """Busca a descrição de um CNES solicitante ou executante em um arquivo CSV."""
+    if not cnes:
+        return "" 
 
     if not os.path.exists(caminho_csv):
         print(f"ERRO: Arquivo '{caminho_csv}' não encontrado.")
-        return "" # Retorna string vazia para evitar TypeError
+        return ""
 
     try:
         with open(caminho_csv, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file, delimiter=';')
             for row in reader:
-                if row['cod_solicitante'].strip() == cnes_solicitante.strip().replace('-', ''):
+                # Usa 'cod_solicitante' pois o CSV usa essa coluna para todos os CNES
+                if row['cod_solicitante'].strip() == cnes.strip().replace('-', ''):
                     return row['desc_solicitante']
     except Exception as e:
         print(f"ERRO ao ler o arquivo CSV: {e}")
-        return "" # Retorna string vazia para evitar TypeError
-    return "" # Retorna string vazia para o caso de não encontrar
+        return ""
+    return ""
     
 # ==============================================================================
 # CLASSE PARA GERAÇÃO DO PDF

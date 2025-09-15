@@ -9,7 +9,7 @@ from utils import (
     extrair_dados_variaveis,
     APAC_PDF,
     buscar_nome_medico_por_cns,
-    buscar_descricao_cnes_solicitante,
+    buscar_descricao_cnes,
     extrair,
     buscar_descricao_cid,
     extrair_principal_e_cnes
@@ -64,7 +64,7 @@ def gerar_apac_risco_cirurgico(blocos_apac, dados_fixos_genericos):
         
         # Usa o CNES que foi extraído no 'main.py'
         cod_cnes_solicitante = dados_fixos_genericos.get("COD_ESTABELECIMENTO", "")
-        desc_cnes_solicitante = str(buscar_descricao_cnes_solicitante(cod_cnes_solicitante))
+        desc_cnes_solicitante = str(buscar_descricao_cnes(cod_cnes_solicitante))
 
         #print(f'{proc_principal}'),
        # print(f'{cnes_solicitante}'),
