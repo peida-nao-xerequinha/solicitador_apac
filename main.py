@@ -98,7 +98,7 @@ def gerar_apacs():
         elif tipo_apac_selecionado == "risco_cirurgico":
             gerar_apac_risco_cirurgico(lista_apacs, dados_fixos_cnes)
         
-        messagebox.showinfo("Deu bom!", f"Processo de geração concluído. Arquivos PDF salvos em: {os.path.join(os.path.expanduser('~'), 'Downloads')}")
+        #messagebox.showinfo("Deu bom!", f"Processo de geração concluído. Arquivos PDF salvos em: {os.path.join(os.path.expanduser('~'), 'Downloads')}")
 
     except Exception as e:
         messagebox.showerror("Erro", f"Ocorreu um erro ao processar o arquivo: {e}")
@@ -130,7 +130,7 @@ def atualizar_relogio():
     agora = datetime.now()
     dia_semana = agora.strftime("%A").capitalize()
     data_completa = agora.strftime("%d/%m/%Y %H:%M:%S")
-    relogio_label.config(text=f"DESENVOLVIDO POR PH  |  {dia_semana}, {data_completa}")
+    relogio_label.config(text=f"{dia_semana}, {data_completa}")
     root.after(1000, atualizar_relogio)
 
 # ==============================================================================
@@ -182,7 +182,7 @@ bloco_risco_cirurgico_frame.grid_columnconfigure(0, weight=1)
 
 label_risco_cirurgico = tk.Label(
     bloco_risco_cirurgico_frame,
-    text="OCI DE RISCO CIRÚRGICO\n\nTEXTO EXPLICATIVO",
+    text="OCI DE RISCO CIRÚRGICO\n\nGera um arquivo único com as\nOCI's de risco cirúrgico",
     bg=COR_BOTAO_PADRAO,
     fg=COR_TEXTO,
     font=FONTE_PADRAO,
@@ -218,7 +218,7 @@ bloco_oftalmologia_frame.grid_columnconfigure(0, weight=1)
 
 label_oftalmologia = tk.Label(
     bloco_oftalmologia_frame,
-    text="OCI OFTALMOLÓGICA\n\nTEXTO EXPLICATIVO",
+    text="OCI OFTALMOLÓGICA\n\nGera um arquivo para cada\nunidade solicitante digitada",
     bg=COR_BOTAO_PADRAO,
     fg=COR_TEXTO,
     font=FONTE_PADRAO,

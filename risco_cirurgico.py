@@ -18,7 +18,7 @@ from utils import (
 # ==============================================================================
 
 PROC_PRINCIPAL = {
-    "cod": "020101001-0",
+    "cod": "090201001-8",
     "descricao": "OCI AVALIACAO DE RISCO CIRURGICO",
     "qtd": "1"
 }
@@ -100,8 +100,7 @@ def gerar_apac_risco_cirurgico(blocos_apac, dados_fixos_genericos):
 
     # Salvar PDF
     pasta_downloads = os.path.join(os.path.expanduser("~"), "Downloads")
-    nome_paciente_limpo = dados_fixos_genericos.get("NOME_PACIENTE", "desconhecido").replace(' ', '_')
-    nome_saida = f"apac_risco_cirurgico_{nome_paciente_limpo}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    nome_saida = f"apac_risco_cirurgico_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
     caminho_saida = os.path.join(pasta_downloads, nome_saida)
     pdf.output(caminho_saida)
     messagebox.showinfo("Sucesso", f"APACs geradas com sucesso!\nSalvas em: {caminho_saida}")

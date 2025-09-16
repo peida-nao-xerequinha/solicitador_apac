@@ -4,6 +4,7 @@ import os
 from tkinter import messagebox
 from fpdf import FPDF
 from datetime import datetime
+from collections import defaultdict
 from utils import (
     extrair_dados_variaveis,
     APAC_PDF,
@@ -21,7 +22,7 @@ from utils import (
 
 MAPA_PROCEDIMENTOS_OFTALMO = {
     "090501003-5": {
-        "descricao": "OCI AVALIAÇÃO INICIAL EM OFTALMOLOGIA - A PARTIR DE 9 ANOS",
+        "descricao": "OCI AVAL. INICIAL EM OFTALMO - A PARTIR DE 9 ANOS",
         "secundarios": [
             {"cod": "021106002-0", "nome": "BIOMICROSCOPIA DE FUNDO", "qtd": "1"},
             {"cod": "030101007-2", "nome": "CONSULTA MEDICA EM ATENCAO ESPECIALIZADA", "qtd": "2"},
@@ -31,7 +32,7 @@ MAPA_PROCEDIMENTOS_OFTALMO = {
         ]
     },
     "090501001-9": {
-        "descricao": "OCI AVALIAÇÃO INICIAL EM OFTALMOLOGIA - 0 A 8 ANOS",
+        "descricao": "OCI AVAL. INICIAL EM OFTALMO - 0 A 8 ANOS",
         "secundarios": [
             {"cod": "021106002-0", "nome": "BIOMICROSCOPIA DE FUNDO", "qtd": "1"},
             {"cod": "030101007-2", "nome": "CONSULTA MEDICA EM ATENCAO ESPECIALIZADA", "qtd": "2"},
@@ -51,9 +52,9 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
         messagebox.showerror("Erro", "Nenhum bloco de APAC foi encontrado no arquivo de texto.")
         return False
 
-    erros = []  # acumulador de erros
-    pdfs_por_cnes = {}  # CNES_SOLICITANTE -> APAC_PDF
-    contagem_por_cnes = {}  # CNES_SOLICITANTE -> quantidade
+    erros = []
+    pdfs_por_cnes = {}
+    resumo_por_cnes = defaultdict(lambda: {"total": 0, "procedimentos": defaultdict(int)})
 
     for bloco in blocos_apac:
         dados_variaveis = extrair_dados_variaveis(bloco)
@@ -112,17 +113,19 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
 
         dados_completos = {**dados_fixos_genericos, **dados_fixos_temp, **dados_variaveis}
 
-        # Se ainda não existe PDF para este CNES, cria
+        # Cria PDF para o CNES
         if cod_cnes_solicitante not in pdfs_por_cnes:
             pdfs_por_cnes[cod_cnes_solicitante] = APAC_PDF(orientacao='P')
-            contagem_por_cnes[cod_cnes_solicitante] = 0
 
-        # Adiciona página ao PDF do CNES correspondente
+        # Adiciona página
         pdfs_por_cnes[cod_cnes_solicitante].add_apac_page(dados_completos)
-        contagem_por_cnes[cod_cnes_solicitante] += 1
+
+        # Atualiza resumo
+        resumo_por_cnes[cod_cnes_solicitante]["total"] += 1
+        resumo_por_cnes[cod_cnes_solicitante]["procedimentos"][mapa["descricao"]] += 1
 
     # -----------------------
-    # Salvar PDFs separados por CNES
+    # Salvar PDFs separados
     # -----------------------
     pasta_downloads = os.path.join(os.path.expanduser("~"), "Downloads")
     for cnes, pdf in pdfs_por_cnes.items():
@@ -135,23 +138,22 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
             messagebox.showerror("Erro", f"Falha ao salvar PDF para CNES {cnes}: {e}")
 
     # -----------------------
-    # Salvar arquivo de erros (se houver)
+    # Salvar arquivo de erros
     # -----------------------
     if erros:
         caminho_erros = os.path.join(pasta_downloads, f"apac_erros_{datetime.now().strftime('%Y%m%d%H%M%S')}.txt")
         with open(caminho_erros, "w", encoding="utf-8") as f:
             f.write("\n".join(erros))
 
-        # -----------------------
-    # Salvar contagem de APACs por CNES
     # -----------------------
-    if contagem_por_cnes:
+    # Salvar contagem detalhada
+    # -----------------------
+    if resumo_por_cnes:
         caminho_contagem = os.path.join(
             pasta_downloads,
             f"apac_contagem_{datetime.now().strftime('%Y%m%d%H%M%S')}.txt"
         )
-        
-        # Captura todos os números de APAC
+
         numeros_apac = []
         for bloco in blocos_apac:
             dados_variaveis = extrair_dados_variaveis(bloco)
@@ -163,16 +165,24 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
 
         menor_apac, maior_apac = "", ""
         if numeros_apac:
-            # Remove dígito verificador apenas para ordenação
             nums_ordenados = sorted(numeros_apac, key=lambda x: x[:-1])
             menor_apac, maior_apac = nums_ordenados[0], nums_ordenados[-1]
 
         with open(caminho_contagem, "w", encoding="utf-8") as f:
-            for cnes, qtd in contagem_por_cnes.items():
-                f.write(f"CNES {cnes}: {qtd} APAC(s)\n")
+            total_geral = 0
+            for cnes, dados in resumo_por_cnes.items():
+                f.write(f"CNES {cnes}: {dados['total']} APAC(s)\n")
+                for proc, qtd in dados["procedimentos"].items():
+                    f.write(f"{proc}: {qtd}\n")
+                f.write("\n")
+                total_geral += dados['total']
+
+            f.write(f"Total Geral: {total_geral}\n\n")
+
             if menor_apac and maior_apac:
-                f.write(f"\nAPAC Inicial: {menor_apac} APAC Final: {maior_apac}\n")
-   
+                f.write(f"APAC Inicial: {menor_apac}\n")
+                f.write(f"APAC Final: {maior_apac}\n")
+
     # -----------------------
     # Mensagem final
     # -----------------------
