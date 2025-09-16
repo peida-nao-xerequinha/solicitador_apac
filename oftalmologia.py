@@ -64,6 +64,7 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
         
         # Extrai o procedimento principal para encontrar o mapa
         proc_principal, _ = extrair_principal_e_cnes(bloco)
+        #cnes_solicitante, _ = extrair_principal_e_cnes(bloco)
         
         # Se o procedimento principal não for encontrado, pula para o próximo bloco
         if not proc_principal:
@@ -106,7 +107,7 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
             "CID10_PRINCIPAL": codigo_cid,
             "COD_ORGAO_EMISSOR": "M351620001",
             # CORREÇÃO: Usa a descrição do CNES do estabelecimento extraído do bloco
-            "NOME_ESTABELECIMENTO": desc_cnes_executante or dados_fixos_genericos.get("NOME_ESTABELECIMENTO", ""),
+            "NOME_ESTABELECIMENTO": desc_cnes_executante,
         }
 
         # Adiciona os procedimentos secundários dinamicamente

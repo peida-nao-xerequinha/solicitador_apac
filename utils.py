@@ -250,5 +250,5 @@ class APAC_PDF(FPDF):
         self.set_xy(147, 270); self.cell(60, 5, f"{data.get('DATA_SOLICITACAO', '')}    {data.get('VALIDADE_FIM', '')}")
         self.set_xy(18.8, 257.9); self.cell(w=2, h=2, text="X", border=0, align='C')
 
-        self.set_xy(13, 283); self.cell(100, 5, data.get("NOME_EXECUTANTE", ""))
+        self.set_xy(13, 283); self.cell(100, 5, data.get("NOME_ESTABELECIMENTO", ""))
         self.set_xy(165, 283); self.cell(50, 5, data.get("CNES_ESTABELECIMENTO", ""))
