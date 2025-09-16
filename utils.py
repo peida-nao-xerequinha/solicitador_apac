@@ -16,12 +16,16 @@ def extrair(pattern, texto, flags=0):
     match = re.search(pattern, texto, flags)
     return match.group(1).strip() if match else ""
 
-def extrair_principal_e_cnes(bloco):
+def extrair_principal_e_cnes(bloco, caminho_csv='estabelecimentos.csv'):
     """
     Extrai o código do procedimento principal e o CNES do solicitante.
     - O procedimento principal é o primeiro código encontrado.
     - O CNES solicitante é o último CNES da seção de procedimentos.
+    Valida o CNES encontrado com a base de estabelecimentos.csv.
+    Se não estiver no CSV, usa como fallback o CNES_ESTABELECIMENTO.
     """
+    import csv
+    
     proc_principal = ""
     cnes_solicitante_capturado = ""
 
@@ -32,7 +36,7 @@ def extrair_principal_e_cnes(bloco):
     if secao:
         linhas = secao.group(1).strip().split('\n')
         
-        # Lógica original para pegar o procedimento principal
+        # Pega o primeiro código como procedimento principal
         for linha in linhas:
             linha = linha.strip()
             if not linha or "CODIGO" in linha:
@@ -41,22 +45,36 @@ def extrair_principal_e_cnes(bloco):
             match_codigo = re.search(r'(\d{9}-\d)', linha)
             if match_codigo:
                 proc_principal = match_codigo.group(1).strip()
-                break # Para aqui, pois já encontrou o proc principal
+                break
         
-        # Nova lógica para pegar o CNES solicitante da última linha
-        if linhas: # Verifica se a lista de linhas não está vazia
+        # Pega o CNES da última linha
+        if linhas:
             ultima_linha = linhas[-1]
             match_cnes = re.search(r'(\d{6,7})\s*$', ultima_linha)
             if match_cnes:
                 cnes_solicitante_capturado = match_cnes.group(1).strip()
 
-    # Aplica a regra de validação do CNES
-    if len(cnes_solicitante_capturado) <= 4:
-        cod_cnes_solicitante = "" 
-    else:
-        cod_cnes_solicitante = cnes_solicitante_capturado
-        
+    # Validação contra estabelecimentos.csv
+    cod_cnes_solicitante = ""
+    if len(cnes_solicitante_capturado) >= 5:  
+        if os.path.exists(caminho_csv):
+            try:
+                with open(caminho_csv, mode='r', encoding='utf-8') as file:
+                    reader = csv.DictReader(file, delimiter=';')
+                    for row in reader:
+                        if row['cod_solicitante'].strip() == cnes_solicitante_capturado:
+                            cod_cnes_solicitante = cnes_solicitante_capturado
+                            break
+            except Exception as e:
+                print(f"[ERRO] Falha ao validar CNES no CSV: {e}")
+
+    # Se não validou pelo CSV, usa CNES_ESTABELECIMENTO como fallback
+    if not cod_cnes_solicitante:
+        cnes_estabelecimento = extrair(r'CODIGO DA UNIDADE:\s*([\d-]+)', bloco)
+        cod_cnes_solicitante = cnes_estabelecimento or ""
+
     return proc_principal, cod_cnes_solicitante
+
 
 def extrair_dados_variaveis(bloco):
     """Extrai apenas os dados variáveis de um bloco de texto da APAC."""

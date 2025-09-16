@@ -10,18 +10,17 @@ from utils import (
     buscar_nome_medico_por_cns,
     extrair,
     buscar_descricao_cid,
-    # ATUALIZADO: Importa a nova função com o nome correto
     buscar_descricao_cnes,
     extrair_principal_e_cnes
 )
 
 
-# ==============================================================================
+# ======================================================================
 # MAPA DE PROCEDIMENTOS - OFTALMOLOGIA
-# ==============================================================================
+# ======================================================================
 
 MAPA_PROCEDIMENTOS_OFTALMO = {
-    "090501003-5": { 
+    "090501003-5": {
         "descricao": "OCI AVALIAÇÃO INICIAL EM OFTALMOLOGIA - A PARTIR DE 9 ANOS",
         "secundarios": [
             {"cod": "021106002-0", "nome": "BIOMICROSCOPIA DE FUNDO", "qtd": "1"},
@@ -31,7 +30,7 @@ MAPA_PROCEDIMENTOS_OFTALMO = {
             {"cod": "021106025-9", "nome": "TONOMETRIA", "qtd": "1"},
         ]
     },
-    "090501001-9": { 
+    "090501001-9": {
         "descricao": "OCI AVALIAÇÃO INICIAL EM OFTALMOLOGIA - 0 A 8 ANOS",
         "secundarios": [
             {"cod": "021106002-0", "nome": "BIOMICROSCOPIA DE FUNDO", "qtd": "1"},
@@ -43,61 +42,51 @@ MAPA_PROCEDIMENTOS_OFTALMO = {
 }
 
 
-# ==============================================================================
+# ======================================================================
 # FUNÇÃO PRINCIPAL
-# ==============================================================================
+# ======================================================================
 
 def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
     if not blocos_apac:
         messagebox.showerror("Erro", "Nenhum bloco de APAC foi encontrado no arquivo de texto.")
         return False
 
-    pdf = APAC_PDF(orientacao='P')
+    erros = []  # acumulador de erros
+    pdfs_por_cnes = {}  # CNES_SOLICITANTE -> APAC_PDF
+    contagem_por_cnes = {}  # CNES_SOLICITANTE -> quantidade
 
     for bloco in blocos_apac:
-        # Extrai os dados variáveis de cada bloco
         dados_variaveis = extrair_dados_variaveis(bloco)
-        
-        # Pula se não encontrar os dados essenciais
         if not dados_variaveis:
             continue
-        
-        
-        # Extrai o procedimento principal para encontrar o mapa
+
         proc_principal, cod_cnes_solicitante = extrair_principal_e_cnes(bloco)
-            
-        # Se o procedimento principal não for encontrado, pula para o próximo bloco
+
         if not proc_principal:
-            messagebox.showwarning("Aviso", "Procedimento principal não encontrado. Pulando este bloco.")
+            numero_apac = dados_variaveis.get("NUMERO_APAC", "DESCONHECIDO")
+            erros.append(f"{numero_apac} - Procedimento principal não encontrado")
             continue
 
-        # Novo: Busca o mapa de procedimentos com base no proc_principal extraído
         mapa = MAPA_PROCEDIMENTOS_OFTALMO.get(proc_principal)
-
         if not mapa:
-            messagebox.showwarning("Aviso", f"Procedimento principal não mapeado: {proc_principal}. Pulando este bloco.")
+            numero_apac = dados_variaveis.get("NUMERO_APAC", "DESCONHECIDO")
+            erros.append(f"{numero_apac} - Procedimento principal não mapeado ({proc_principal})")
             continue
 
-        # Pega o CID e busca a descrição (melhor prática)
+        # Dados complementares
         codigo_cid = dados_variaveis.get("CID10_PRINCIPAL", "")
         descricao_cid = buscar_descricao_cid(codigo_cid)
 
-        # Garante que os valores de CNS sejam strings, para evitar TypeErrors
-        cns_solicitante = str(dados_variaveis.get("CNS_SOLICITANTE", ""))
-        nome_solicitante = str(buscar_nome_medico_por_cns(cns_solicitante))
-        
-        cns_autorizador = str(dados_variaveis.get("CNS_AUTORIZADOR", ""))
-        nome_autorizador = str(buscar_nome_medico_por_cns(cns_autorizador))
-        
-        # CORREÇÃO: Pega o CNES do estabelecimento diretamente dos dados variáveis
-        cod_cnes_executante = dados_variaveis.get("CNES_ESTABELECIMENTO", "")
-        desc_cnes_executante = str(buscar_descricao_cnes(cod_cnes_executante))
-        #cod_cnes_solicitante = dados_variaveis.get("CNES_SOLICITANTE", "")
-        desc_cnes_solicitante = str(buscar_descricao_cnes(cod_cnes_solicitante))
-        #print(f'{cod_cnes_solicitante}, {desc_cnes_solicitante}')
+        cns_solicitante = str(dados_variaveis.get("CNS_SOLICITANTE", "")).replace(" ", "")
+        nome_solicitante = buscar_nome_medico_por_cns(cns_solicitante) or ""
 
+        cns_autorizador = str(dados_variaveis.get("CNS_AUTORIZADOR", "")).replace(" ", "")
+        nome_autorizador = buscar_nome_medico_por_cns(cns_autorizador) or ""
 
-        # Novo: Usa o 'proc_principal' e 'mapa' para popular os dados
+        cod_cnes_executante = dados_variaveis.get("CNES_ESTABELECIMENTO", "") or ""
+        desc_cnes_executante = buscar_descricao_cnes(cod_cnes_executante) or ""
+        desc_cnes_solicitante = buscar_descricao_cnes(cod_cnes_solicitante) if cod_cnes_solicitante else ""
+
         dados_fixos_temp = {
             "PROC_PRINCIPAL_COD": proc_principal,
             "PROC_PRINCIPAL_NOME": mapa["descricao"],
@@ -110,25 +99,87 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
             "CID10_PRINCIPAL": codigo_cid,
             "COD_ORGAO_EMISSOR": "M351620001",
             "NOME_ESTABELECIMENTO": desc_cnes_executante,
-            "CNES_EXECUTANTE": cod_cnes_executante, 
+            "CNES_ESTABELECIMENTO": cod_cnes_executante,
             "NOME_ESTAB_SOLICITANTE": desc_cnes_solicitante,
-            "CNES_SOLICITANTE": cod_cnes_solicitante
+            "CNES_SOLICITANTE": cod_cnes_solicitante,
+            "OBSERVACOES": "Avaliação oftalmológica de rotina",
         }
 
-        # Adiciona os procedimentos secundários dinamicamente
         for j, sec in enumerate(mapa["secundarios"], start=1):
             dados_fixos_temp[f"PROC_SEC{j}_COD"] = sec["cod"]
             dados_fixos_temp[f"PROC_SEC{j}_NOME"] = sec["nome"]
             dados_fixos_temp[f"PROC_SEC{j}_QTD"] = sec["qtd"]
 
         dados_completos = {**dados_fixos_genericos, **dados_fixos_temp, **dados_variaveis}
-        pdf.add_apac_page(dados_completos)
 
-    # Salvar PDF - MOVIDO PARA FORA DO LOOP
+        # Se ainda não existe PDF para este CNES, cria
+        if cod_cnes_solicitante not in pdfs_por_cnes:
+            pdfs_por_cnes[cod_cnes_solicitante] = APAC_PDF(orientacao='P')
+            contagem_por_cnes[cod_cnes_solicitante] = 0
+
+        # Adiciona página ao PDF do CNES correspondente
+        pdfs_por_cnes[cod_cnes_solicitante].add_apac_page(dados_completos)
+        contagem_por_cnes[cod_cnes_solicitante] += 1
+
+    # -----------------------
+    # Salvar PDFs separados por CNES
+    # -----------------------
     pasta_downloads = os.path.join(os.path.expanduser("~"), "Downloads")
-    nome_paciente_limpo = dados_fixos_genericos.get("NOME_PACIENTE", "desconhecido").replace(' ', '_')
-    nome_saida = f"apac_oftalmo_{nome_paciente_limpo}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
-    caminho_saida = os.path.join(pasta_downloads, nome_saida)
-    pdf.output(caminho_saida)
-    messagebox.showinfo("Sucesso", f"APACs geradas com sucesso!\nSalvas em: {caminho_saida}")
+    for cnes, pdf in pdfs_por_cnes.items():
+        nome_paciente_limpo = dados_fixos_genericos.get("NOME_PACIENTE", "desconhecido").replace(' ', '_')
+        nome_saida = f"apac_oftalmo_{nome_paciente_limpo}_{cnes}_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+        caminho_saida = os.path.join(pasta_downloads, nome_saida)
+        try:
+            pdf.output(caminho_saida)
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao salvar PDF para CNES {cnes}: {e}")
+
+    # -----------------------
+    # Salvar arquivo de erros (se houver)
+    # -----------------------
+    if erros:
+        caminho_erros = os.path.join(pasta_downloads, f"apac_erros_{datetime.now().strftime('%Y%m%d%H%M%S')}.txt")
+        with open(caminho_erros, "w", encoding="utf-8") as f:
+            f.write("\n".join(erros))
+
+        # -----------------------
+    # Salvar contagem de APACs por CNES
+    # -----------------------
+    if contagem_por_cnes:
+        caminho_contagem = os.path.join(
+            pasta_downloads,
+            f"apac_contagem_{datetime.now().strftime('%Y%m%d%H%M%S')}.txt"
+        )
+        
+        # Captura todos os números de APAC
+        numeros_apac = []
+        for bloco in blocos_apac:
+            dados_variaveis = extrair_dados_variaveis(bloco)
+            if not dados_variaveis:
+                continue
+            num = dados_variaveis.get("NUMERO_APAC", "")
+            if num:
+                numeros_apac.append(num)
+
+        menor_apac, maior_apac = "", ""
+        if numeros_apac:
+            # Remove dígito verificador apenas para ordenação
+            nums_ordenados = sorted(numeros_apac, key=lambda x: x[:-1])
+            menor_apac, maior_apac = nums_ordenados[0], nums_ordenados[-1]
+
+        with open(caminho_contagem, "w", encoding="utf-8") as f:
+            for cnes, qtd in contagem_por_cnes.items():
+                f.write(f"CNES {cnes}: {qtd} APAC(s)\n")
+            if menor_apac and maior_apac:
+                f.write(f"\nAPAC Inicial: {menor_apac} APAC Final: {maior_apac}\n")
+   
+    # -----------------------
+    # Mensagem final
+    # -----------------------
+    msg = "APACs de oftalmologia geradas com sucesso.\n\n"
+    msg += f"Arquivos salvos em: {pasta_downloads}\n"
+    if erros:
+        msg += f"\nAlguns blocos apresentaram problemas. Consulte o arquivo de erros."
+    messagebox.showinfo("Processo Concluído", msg)
+
     return True
