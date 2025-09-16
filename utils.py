@@ -18,42 +18,45 @@ def extrair(pattern, texto, flags=0):
 
 def extrair_principal_e_cnes(bloco):
     """
-    Extrai apenas:
-    - o primeiro código de procedimento (PROC_PRINCIPAL)
-    - o CNES do primeiro procedimento que tiver CNES preenchido
+    Extrai o código do procedimento principal e o CNES do solicitante.
+    - O procedimento principal é o primeiro código encontrado.
+    - O CNES solicitante é o último CNES da seção de procedimentos.
     """
     proc_principal = ""
-    cnes_solicitante = ""
+    cnes_solicitante_capturado = ""
 
-    # Captura toda a seção de procedimentos até "MOTIVO DE SAIDA"
+    # Captura a seção inteira de procedimentos
     secao = re.search(r'PROCEDIMENTOS REALIZADOS:(.*?)(?=MOTIVO DE SAIDA)', 
                       bloco, re.DOTALL | re.IGNORECASE)
     
     if secao:
-        linhas = secao.group(1).split('\n')
+        linhas = secao.group(1).strip().split('\n')
+        
+        # Lógica original para pegar o procedimento principal
         for linha in linhas:
             linha = linha.strip()
             if not linha or "CODIGO" in linha:
                 continue
+            
+            match_codigo = re.search(r'(\d{9}-\d)', linha)
+            if match_codigo:
+                proc_principal = match_codigo.group(1).strip()
+                break # Para aqui, pois já encontrou o proc principal
+        
+        # Nova lógica para pegar o CNES solicitante da última linha
+        if linhas: # Verifica se a lista de linhas não está vazia
+            ultima_linha = linhas[-1]
+            match_cnes = re.search(r'(\d{6,7})\s*$', ultima_linha)
+            if match_cnes:
+                cnes_solicitante_capturado = match_cnes.group(1).strip()
 
-            # Pega o código do procedimento (primeiros 9+1 dígitos)
-            if not proc_principal:
-                match_codigo = re.search(r'(\d{9}-\d)', linha)
-                if match_codigo:
-                    proc_principal = match_codigo.group(1).strip()
-
-            # Pega o CNES (último número na linha, se existir)
-            if not cnes_solicitante:
-                match_cnes = re.search(r'(\d{6,7})\s*$', linha)
-                if match_cnes:
-                    cnes_solicitante = match_cnes.group(1).strip()
-
-            # Se já encontrou os dois, sai do loop
-            if proc_principal and cnes_solicitante:
-                break
-
-    return proc_principal, cnes_solicitante
-
+    # Aplica a regra de validação do CNES
+    if len(cnes_solicitante_capturado) <= 4:
+        cod_cnes_solicitante = "" 
+    else:
+        cod_cnes_solicitante = cnes_solicitante_capturado
+        
+    return proc_principal, cod_cnes_solicitante
 
 def extrair_dados_variaveis(bloco):
     """Extrai apenas os dados variáveis de um bloco de texto da APAC."""
@@ -191,8 +194,8 @@ class APAC_PDF(FPDF):
         self.set_font('Arial', '', 10)
         self.set_text_color(0, 0, 0)
         
-        self.set_xy(13, 32); self.cell(100, 5, data.get("NOME_ESTABELECIMENTO", ""))
-        self.set_xy(168, 32); self.cell(50, 5, data.get("CNES_ESTABELECIMENTO", ""))
+        self.set_xy(13, 32); self.cell(100, 5, data.get("NOME_ESTAB_SOLICITANTE", ""))
+        self.set_xy(168, 32); self.cell(50, 5, data.get("CNES_SOLICITANTE", ""))
         self.set_xy(13, 46.5); self.cell(100, 5, data.get("NOME_PACIENTE", ""))
         
         original_font_size = self.font_size_pt

@@ -62,10 +62,10 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
         if not dados_variaveis:
             continue
         
-        # Extrai o procedimento principal para encontrar o mapa
-        proc_principal, _ = extrair_principal_e_cnes(bloco)
-        #cnes_solicitante, _ = extrair_principal_e_cnes(bloco)
         
+        # Extrai o procedimento principal para encontrar o mapa
+        proc_principal, cod_cnes_solicitante = extrair_principal_e_cnes(bloco)
+            
         # Se o procedimento principal não for encontrado, pula para o próximo bloco
         if not proc_principal:
             messagebox.showwarning("Aviso", "Procedimento principal não encontrado. Pulando este bloco.")
@@ -91,8 +91,11 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
         
         # CORREÇÃO: Pega o CNES do estabelecimento diretamente dos dados variáveis
         cod_cnes_executante = dados_variaveis.get("CNES_ESTABELECIMENTO", "")
-        # E busca a descrição a partir desse CNES usando a nova função
         desc_cnes_executante = str(buscar_descricao_cnes(cod_cnes_executante))
+        #cod_cnes_solicitante = dados_variaveis.get("CNES_SOLICITANTE", "")
+        desc_cnes_solicitante = str(buscar_descricao_cnes(cod_cnes_solicitante))
+        #print(f'{cod_cnes_solicitante}, {desc_cnes_solicitante}')
+
 
         # Novo: Usa o 'proc_principal' e 'mapa' para popular os dados
         dados_fixos_temp = {
@@ -106,8 +109,10 @@ def gerar_apac_oftalmologia(blocos_apac, dados_fixos_genericos):
             "DESC_DIAGNOSTICO": descricao_cid,
             "CID10_PRINCIPAL": codigo_cid,
             "COD_ORGAO_EMISSOR": "M351620001",
-            # CORREÇÃO: Usa a descrição do CNES do estabelecimento extraído do bloco
             "NOME_ESTABELECIMENTO": desc_cnes_executante,
+            "CNES_EXECUTANTE": cod_cnes_executante, 
+            "NOME_ESTAB_SOLICITANTE": desc_cnes_solicitante,
+            "CNES_SOLICITANTE": cod_cnes_solicitante
         }
 
         # Adiciona os procedimentos secundários dinamicamente
