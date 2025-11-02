@@ -8,6 +8,22 @@ from fpdf import FPDF
 from tkinter import filedialog, messagebox
 
 # ==============================================================================
+# FUNÇÃO DE CAMINHO PARA PYINSTALLER
+# ==============================================================================
+
+def resource_path(relative_path):
+    """Obtém o caminho absoluto para o recurso, funcionando tanto para o script quanto para o EXE empacotado."""
+    try:
+        # Caminho temporário criado pelo PyInstaller (--onefile)
+        # O PyInstaller define o caminho base para a pasta temporária de extração
+        base_path = sys._MEIPASS
+    except Exception:
+        # Caminho normal (quando rodando o script Python diretamente)
+        base_path = os.path.abspath(os.path.dirname(__file__))
+
+    return os.path.join(base_path, relative_path)
+
+# ==============================================================================
 # FUNÇÕES DE UTILIDADE GERAL
 # ==============================================================================
 
@@ -17,14 +33,6 @@ def extrair(pattern, texto, flags=0):
     return match.group(1).strip() if match else ""
 
 def extrair_principal_e_cnes(bloco, caminho_csv='estabelecimentos.csv'):
-    """
-    Extrai o código do procedimento principal e o CNES do solicitante.
-    - O procedimento principal é o primeiro código encontrado.
-    - O CNES solicitante é o último CNES da seção de procedimentos.
-    Valida o CNES encontrado com a base de estabelecimentos.csv.
-    Se não estiver no CSV, usa como fallback o CNES_ESTABELECIMENTO.
-    """
-    import csv
     
     proc_principal = ""
     cnes_solicitante_capturado = ""
@@ -39,7 +47,7 @@ def extrair_principal_e_cnes(bloco, caminho_csv='estabelecimentos.csv'):
         # Pega o primeiro código como procedimento principal
         for linha in linhas:
             linha = linha.strip()
-            if not linha or "CODIGO" in linha:
+            if not linha or "CODIGO" in linha or "PROCEDIMENTO" in linha:
                 continue
             
             match_codigo = re.search(r'(\d{9}-\d)', linha)
@@ -47,19 +55,33 @@ def extrair_principal_e_cnes(bloco, caminho_csv='estabelecimentos.csv'):
                 proc_principal = match_codigo.group(1).strip()
                 break
         
-        # Pega o CNES da última linha
-        if linhas:
-            ultima_linha = linhas[-1]
-            match_cnes = re.search(r'(\d{6,7})\s*$', ultima_linha)
+        regex_cnes_terc = r'(\d{6,7})\s*$' # CNES (6 ou 7 dígitos) no final da linha
+
+        for linha in reversed(linhas):
+            linha = linha.strip()
+
+            # 1. Ignora linhas que são cabeçalhos ou vazias
+            if not linha or "CODIGO" in linha or "CNES TERC" in linha:
+                 continue
+
+            # 2. Ignora linhas de observação/atenção
+            if "ATENCAO" in linha.upper() or "OBSERVACAO" in linha.upper():
+                continue
+
+            # 3. Tenta encontrar o CNES na linha do procedimento
+            match_cnes = re.search(regex_cnes_terc, linha)
             if match_cnes:
                 cnes_solicitante_capturado = match_cnes.group(1).strip()
+                break # Encontrou o CNES válido, pode sair do loop
 
     # Validação contra estabelecimentos.csv
     cod_cnes_solicitante = ""
-    if len(cnes_solicitante_capturado) >= 5:  
-        if os.path.exists(caminho_csv):
+    if len(cnes_solicitante_capturado) >= 5:
+        # --- ALTERAÇÃO: Usa resource_path() para localizar o CSV ---
+        csv_path = resource_path(caminho_csv)
+        if os.path.exists(csv_path):
             try:
-                with open(caminho_csv, mode='r', encoding='utf-8') as file:
+                with open(csv_path, mode='r', encoding='utf-8') as file:
                     reader = csv.DictReader(file, delimiter=';')
                     for row in reader:
                         if row['cod_solicitante'].strip() == cnes_solicitante_capturado:
@@ -67,6 +89,7 @@ def extrair_principal_e_cnes(bloco, caminho_csv='estabelecimentos.csv'):
                             break
             except Exception as e:
                 print(f"[ERRO] Falha ao validar CNES no CSV: {e}")
+        # -----------------------------------------------------------
 
     # Se não validou pelo CSV, usa CNES_ESTABELECIMENTO como fallback
     if not cod_cnes_solicitante:
@@ -117,12 +140,6 @@ def extrair_dados_variaveis(bloco):
         "CNS_AUTORIZADOR": cns_autorizador,
     }
 
-    # A lógica de processar procedimentos foi movida para as funções específicas de cada APAC.
-    # Por isso, o bloco de código abaixo foi removido.
-    # if procedimentos:
-    #    ...
-    # return dados
-
     return dados
 
 # O restante do seu arquivo utils.py...
@@ -134,12 +151,14 @@ def buscar_nome_medico_por_cns(cns, caminho_csv='medicos.csv'):
     if not cns:
         return None
     
-    if not os.path.exists(caminho_csv):
+    # --- ALTERAÇÃO: Usa resource_path() para localizar o CSV ---
+    csv_path = resource_path(caminho_csv)
+    if not os.path.exists(csv_path):
         print(f"ERRO: Arquivo '{caminho_csv}' não encontrado.")
         return None
 
     try:
-        with open(caminho_csv, mode='r', encoding='utf-8') as file:
+        with open(csv_path, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file, delimiter=';')
             for row in reader:
                 if row['cartao_sus'].strip() == cns.strip():
@@ -151,7 +170,8 @@ def buscar_nome_medico_por_cns(cns, caminho_csv='medicos.csv'):
 
 def buscar_descricao_cid(codigo_cid):
     """Busca a descrição de um CID em um arquivo CSV."""
-    caminho_csv = os.path.join(os.path.dirname(__file__), 'cid_oftalmologia.csv')
+    # --- ALTERAÇÃO: Usa resource_path() para localizar o CSV ---
+    caminho_csv = resource_path('cid_oftalmologia.csv')
     if not os.path.exists(caminho_csv):
         messagebox.showerror("Erro", f"Arquivo CSV não encontrado: {caminho_csv}")
         return None
@@ -168,12 +188,14 @@ def buscar_descricao_cnes(cnes, caminho_csv='estabelecimentos.csv'):
     if not cnes:
         return "" 
 
-    if not os.path.exists(caminho_csv):
+    # --- ALTERAÇÃO: Usa resource_path() para localizar o CSV ---
+    csv_path = resource_path(caminho_csv)
+    if not os.path.exists(csv_path):
         print(f"ERRO: Arquivo '{caminho_csv}' não encontrado.")
         return ""
 
     try:
-        with open(caminho_csv, mode='r', encoding='utf-8') as file:
+        with open(csv_path, mode='r', encoding='utf-8') as file:
             reader = csv.DictReader(file, delimiter=';')
             for row in reader:
                 # Usa 'cod_solicitante' pois o CSV usa essa coluna para todos os CNES
@@ -196,12 +218,15 @@ class APAC_PDF(FPDF):
     def add_apac_page(self, data):
         self.add_page()
         
-        if getattr(sys, 'frozen', False):
-            application_path = os.path.dirname(sys.executable)
-        else:
-            application_path = os.path.dirname(os.path.abspath(__file__))
-            
-        template_path = os.path.join(application_path, "template.png")
+        # --- BLOCO ANTIGO SIMPLIFICADO PELA resource_path ---
+        # if getattr(sys, 'frozen', False):
+        #     application_path = os.path.dirname(sys.executable)
+        # else:
+        #     application_path = os.path.dirname(os.path.abspath(__file__))
+        # template_path = os.path.join(application_path, "template.png")
+        
+        # --- ALTERAÇÃO: Usa resource_path() para localizar o PNG ---
+        template_path = resource_path("template.png")
         
         if os.path.exists(template_path):
             self.image(template_path, x=0, y=0, w=210, h=297)
@@ -212,6 +237,7 @@ class APAC_PDF(FPDF):
         self.set_font('Arial', '', 10)
         self.set_text_color(0, 0, 0)
         
+        # ... (restante do código do PDF) ...
         self.set_xy(13, 32); self.cell(100, 5, data.get("NOME_ESTAB_SOLICITANTE", ""))
         self.set_xy(168, 32); self.cell(50, 5, data.get("CNES_SOLICITANTE", ""))
         self.set_xy(13, 46.5); self.cell(100, 5, data.get("NOME_PACIENTE", ""))
@@ -268,7 +294,7 @@ class APAC_PDF(FPDF):
         self.set_xy(55, 257.5); self.cell(60, 5, data.get("DOC_AUTORIZADOR", ""))
         self.set_xy(140, 246); self.cell(60, 5, data.get("NUMERO_APAC", ""))
         self.set_xy(13, 270); self.cell(60, 5, data.get("DATA_SOLICITACAO", ""))
-        self.set_xy(147, 270); self.cell(60, 5, f"{data.get('DATA_SOLICITACAO', '')}    {data.get('VALIDADE_FIM', '')}")
+        self.set_xy(147, 270); self.cell(60, 5, f"{data.get('DATA_SOLICITACAO', '')}    {data.get('VALIDADE_FIM', '')}")
         self.set_xy(18.8, 257.9); self.cell(w=2, h=2, text="X", border=0, align='C')
 
         self.set_xy(13, 283); self.cell(100, 5, data.get("NOME_ESTABELECIMENTO", ""))
